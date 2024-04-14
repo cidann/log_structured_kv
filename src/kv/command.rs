@@ -1,6 +1,5 @@
-
-
 use clap::{Parser, Subcommand};
+use serde::{Deserialize, Serialize};
 
 
 
@@ -11,7 +10,7 @@ pub struct KVArgs{
     pub operations:KVCommand
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand,Deserialize,Serialize)]
 pub enum KVCommand{
     Get{key:String},
     Set{key:String,value:String},

@@ -1,30 +1,17 @@
 
-use serde::Deserialize;
-use std::result;
+pub mod server;
+pub mod client;
 
-pub mod command;
 pub mod kv;
-pub mod util;
-pub use kv::KvStore;
+pub mod sled;
+mod common;
 
 
+pub use kv::{KvStore,Result};
 
-pub type Result<T>=result::Result<T,KVError>;
-
-#[derive(Debug,PartialEq)]
-pub enum KVError{
-    IOError(&'static str),
-    ConfigError(&'static str),
-    ReadError(&'static str),
-    WriteError(&'static str),
-    KeyNotFound(&'static str),
-    ParseError(&'static str)
+pub trait KvsEngine {
+    fn name(&self)->String;
+    fn set(&mut self, key: String, value: String) -> Result<()>;
+    fn get(&mut self, key: String) -> Result<Option<String>>;
+    fn remove(&mut self, key: String) -> Result<()>;
 }
-
-#[derive(Deserialize)]
-pub struct Config{
-    pub db_dir:String,
-    pub file_size:usize,
-    pub merge_size:usize,
-}
-

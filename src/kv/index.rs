@@ -1,10 +1,6 @@
 use std::collections::HashMap;
 
-
-
-
-
-use crate::{KVError, Result};
+use super::{KVError, Result};
 
 use super::{storage::LogPointer, Operation};
 
@@ -64,12 +60,10 @@ impl Index {
     }
 
     pub fn iter(&self)->impl Iterator<Item = Result<Operation>>+'_{
-        self.index
-        .iter()
-        .map(|(_,log_ptr)|log_ptr.read())
+        self.index.values().map(|log_ptr| log_ptr.read())
     }
 
     pub fn len(&self)->usize{
-        return self.index.len();
+        self.index.len()
     }
 }

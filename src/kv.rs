@@ -1,17 +1,26 @@
-use std::path::PathBuf;
-use crate::{ util::KILOBYTE, KVError, Result};
-
-
-
+use std::{path::PathBuf, result};
+use crate::{common::KILOBYTE, KvsEngine};
 use serde::{Deserialize, Serialize};
-
-
-
 use self::{index::Index, storage::LogStorage};
 
 mod index;
 mod storage;
+mod util;
+pub mod config;
+pub mod command;
 
+
+pub type Result<T>=result::Result<T,KVError>;
+
+#[derive(Debug,PartialEq)]
+pub enum KVError{
+    IOError(&'static str),
+    ConfigError(&'static str),
+    ReadError(&'static str),
+    WriteError(&'static str),
+    KeyNotFound(&'static str),
+    ParseError(&'static str)
+}
 
 pub struct KvStore{
     storage:LogStorage,
@@ -29,54 +38,18 @@ enum Operation{
 
 impl KvStore {
     pub fn open(path:impl Into<PathBuf>)->Result<KvStore>{
-        let path:PathBuf=path.into();
+        let mut path:PathBuf=path.into();
+        path.push("data");
         let storage=LogStorage::load(path)?;
         let mut index=Index::new();
         index.build_index(storage.iter_entries())?;
         
-
         Ok(KvStore{
             storage,
             index,
             merge_threshold:10*KILOBYTE
         })
 
-
-    }
-
-
-    pub fn set(&mut self,key:String,val:String)->Result<()>{
-        let set_op=Operation::Set(key.clone(),val);
-        let log_ptr=self.storage.write(set_op)?;
-        self.index.set(key, log_ptr);
-        if self.storage.storage_size()>self.merge_threshold{
-            self.merge()?;
-        }
-        Ok(())
-    }
-
-    pub fn get(&self,key:String)->Result<Option<String>>{
-        if !self.index.contains(&key){
-            Ok(None)
-        } else {
-            Ok(Some(self.index.get(&key)?))
-        }
-    }
-
-    pub fn remove(&mut self,key:String)->Result<()>{
-        let rm_op=Operation::Remove(key.clone());
-
-        if !self.index.contains(&key){
-            Err(KVError::KeyNotFound("KvStore::remove"))
-        } else {
-            self.storage.write(rm_op)?;
-            self.index.remove(&key)?;
-            
-            if self.storage.storage_size()>self.merge_threshold{
-                self.merge()?;
-            }
-            Ok(())
-        }
     }
     
     //just merge every right now
@@ -104,5 +77,45 @@ impl KvStore {
         }
 
         Ok(())
+    }
+}
+
+impl KvsEngine for KvStore {
+    fn set(&mut self, key: String, value: String) -> Result<()> {
+        let set_op=Operation::Set(key.clone(),value);
+        let log_ptr=self.storage.write(set_op)?;
+        self.index.set(key, log_ptr);
+        if self.storage.storage_size()>self.merge_threshold{
+            self.merge()?;
+        }
+        Ok(())
+    }
+
+    fn get(&mut self,key:String)->Result<Option<String>>{
+        if !self.index.contains(&key){
+            Ok(None)
+        } else {
+            Ok(Some(self.index.get(&key)?))
+        }
+    }
+
+    fn remove(&mut self,key:String)->Result<()>{
+        let rm_op=Operation::Remove(key.clone());
+
+        if !self.index.contains(&key){
+            Err(KVError::KeyNotFound("KvStore::remove"))
+        } else {
+            self.storage.write(rm_op)?;
+            self.index.remove(&key)?;
+            
+            if self.storage.storage_size()>self.merge_threshold{
+                self.merge()?;
+            }
+            Ok(())
+        }
+    }
+    
+    fn name(&self)->String {
+        "kvs".to_string()
     }
 }

@@ -1,7 +1,9 @@
 use std::{cell::RefCell, collections::BTreeMap, ffi::OsString, fs::{read_dir, remove_file, DirBuilder, File, OpenOptions}, io::{BufReader, Read, Seek, Write}, ops::DerefMut, path::PathBuf, rc::Rc, result, str::FromStr};
 
 
-use crate::{util::{ OffsetStreamSerializer, KILOBYTE}, KVError, Result};
+use super::util::OffsetStreamSerializer;
+use super::{Result,KVError};
+use crate::common::KILOBYTE;
 
 const _: () = assert!(std::mem::size_of::<u64>()<=std::mem::size_of::<usize>());
 
@@ -30,7 +32,7 @@ struct FileReadBufRefWrapper(FileReadBufRef);
 
 impl LogStorage {
     pub fn load(directory:PathBuf)->Result<LogStorage>{
-        assert!(directory.is_dir(),"Expected directory for database");
+        assert!(!directory.exists()||directory.is_dir(),"Expected directory for database {:?}",directory);
         DirBuilder::new().recursive(true).create(directory.clone()).map_err(|_|KVError::IOError("LogStorage::load1"))?;
         
         let (cur_storage_size,mut read_file_pool)=Self::load_persisted_files(&directory)?;
@@ -185,6 +187,7 @@ impl LogStorage {
         .read(true)
         .append(true)
         .open(path)
+        .inspect_err(|e|eprintln!("{e}"))
         .map_err(|_|KVError::IOError("LogStorage::new_log_file"))
     }
 
